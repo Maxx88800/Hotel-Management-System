@@ -180,7 +180,16 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
     return (
         <>
             <Transition show={isOpen} as={Fragment}>
-                <Dialog onClose={onClose} className="relative z-[1000]">
+                <Dialog
+                    onClose={() => {
+                        if (activeSubModal) {
+                            setActiveSubModal(null);
+                        } else {
+                            onClose();
+                        }
+                    }}
+                    className="relative z-[1000]"
+                >
                     {/* Backdrop transition */}
                     <TransitionChild
                         as={Fragment}
@@ -540,19 +549,18 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                             </DialogPanel>
                         </TransitionChild>
                     </div>
-                </Dialog>
-            </Transition>
 
-            {/* --- Modals Portal --- */}
-            <AnimatePresence>
+                    {/* Submodals stay inside the Dialog portal so mobile taps are not inert. */}
+                    <AnimatePresence>
                 {/* 1. Modal: Extend stays */}
                 {activeSubModal === 'extend' && (
-                    <div className="fixed inset-0 bg-[#070b13]/90 z-[99999] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[80] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
+                        <div className="box-border flex min-h-full w-full items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
                         >
                             <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                                 <h3 className="font-outfit font-extrabold text-base text-slate-200">Extend Stay Duration</h3>
@@ -697,6 +705,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                 </button>
                             </form>
                         </motion.div>
+                        </div>
                     </div>
                 )}
 
@@ -707,12 +716,13 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                         : (calculations.additional_due || 0);
 
                     return (
-                        <div className="fixed inset-0 bg-[#070b13]/90 z-[99999] flex items-center justify-center p-4">
+                        <div className="fixed inset-0 z-[80] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
+                        <div className="box-border flex min-h-full w-full items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 0.95 }}
-                                className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                                className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-lg shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
                             >
                                 <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                                     <h3 className="font-outfit font-extrabold text-base text-slate-200">Process Checkout</h3>
@@ -868,18 +878,20 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                     </button>
                                 </form>
                             </motion.div>
+                            </div>
                         </div>
                     );
                 })()}
 
                 {/* 3. Modal: Reassign Room */}
                 {activeSubModal === 'move' && (
-                    <div className="fixed inset-0 bg-[#070b13]/90 z-[99999] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[80] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
+                        <div className="box-border flex min-h-full w-full items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
                         >
                             <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                                 <h3 className="font-outfit font-extrabold text-base text-slate-200">Reassign Guest Room</h3>
@@ -927,17 +939,19 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                 </button>
                             </form>
                         </motion.div>
+                        </div>
                     </div>
                 )}
 
                 {/* 4. Modal: Cancel Booking Stay */}
                 {activeSubModal === 'cancel' && (
-                    <div className="fixed inset-0 bg-[#070b13]/90 z-[99999] flex items-center justify-center p-4">
+                    <div className="fixed inset-0 z-[80] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
+                        <div className="box-border flex min-h-full w-full items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
+                            className="bg-[#1e293b] border border-[#334155] rounded-2xl w-full max-w-md shadow-2xl p-6 flex flex-col gap-5 text-slate-100"
                         >
                             <div className="flex justify-between items-center border-b border-red-500/30 pb-3">
                                 <h3 className="font-outfit font-extrabold text-base text-red-400">Cancel Booking Stay</h3>
@@ -974,11 +988,14 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                 </button>
                             </form>
                         </motion.div>
+                        </div>
                     </div>
                 )}
 
                 {/* Removed pos_receipt modal */}
-            </AnimatePresence>
+                    </AnimatePresence>
+                </Dialog>
+            </Transition>
 
             <ImagePreviewModal
                 isOpen={isImageModalOpen}
