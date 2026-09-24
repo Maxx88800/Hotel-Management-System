@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StayDetailsModal from '@/Components/StayDetailsModal';
+import { releaseStuckUiLock } from '@/releaseStuckUiLock';
 import GroupSettleModal from '@/Components/GroupSettleModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import ActionModal from '@/Components/ActionModal';
@@ -1535,8 +1536,10 @@ export default function Index({ vacantRooms, roomTypes, prefilledGuest, promoCod
                         )}
                         <button
                             onClick={() => {
+                                const bookingId = actionModalBooking.id;
                                 setActionModalBooking(null);
-                                setSelectedBookingIdForModal(actionModalBooking.id);
+                                releaseStuckUiLock();
+                                setSelectedBookingIdForModal(bookingId);
                                 setIsStayModalOpen(true);
                             }}
                             className="w-full flex items-center gap-2 px-4 py-3 bg-[#1e293b] hover:bg-brand-600/20 border border-[#334155] hover:border-brand-500/40 rounded-xl text-xs font-bold text-brand-400 transition-colors"

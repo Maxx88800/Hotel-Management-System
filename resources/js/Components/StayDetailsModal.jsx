@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useRef, Fragment } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
-import { useForm, router, usePage, Link } from '@inertiajs/react';
+import { releaseStuckUiLock } from '@/releaseStuckUiLock';
+import { useForm, usePage } from '@inertiajs/react';
 import {
     Calendar, Clock, Coins, User, Plus, DollarSign, Timer,
     PowerOff, Printer, FileText, AlertTriangle, X, ClipboardCheck,
     Shuffle, TrendingUp, RefreshCw, MessageSquare
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import ConfirmModal from '@/Components/ConfirmModal';
 import GroupSettleModal from '@/Components/GroupSettleModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import ReceiptModal from '@/Components/ReceiptModal';
@@ -106,6 +105,11 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         loadDetails();
     }, [bookingId]);
 
+    useEffect(() => {
+        releaseStuckUiLock();
+        return releaseStuckUiLock;
+    }, [activeSubModal, isOpen]);
+
     // Handle Submissions
     const handleExtendSubmit = (e) => {
         e.preventDefault();
@@ -123,14 +127,19 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         e?.preventDefault?.();
         if (checkoutLock.current || checkoutForm.processing) return;
         checkoutLock.current = true;
+        releaseStuckUiLock();
         checkoutForm.post(route('bookings.checkout', bookingId), {
             onSuccess: () => {
                 setSubModal(null);
+                releaseStuckUiLock();
                 onClose();
-                router.reload();
+            },
+            onError: () => {
+                releaseStuckUiLock();
             },
             onFinish: () => {
                 checkoutLock.current = false;
+                releaseStuckUiLock();
             }
         });
     };
@@ -140,9 +149,12 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         cancelForm.post(route('bookings.cancel', bookingId), {
             onSuccess: () => {
                 setSubModal(null);
+                releaseStuckUiLock();
                 cancelForm.reset();
                 onClose();
-                router.reload();
+            },
+            onFinish: () => {
+                releaseStuckUiLock();
             }
         });
     };
@@ -192,40 +204,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
 
     return (
         <>
-            {!activeSubModal && (
-            <Transition show={isOpen} as={Fragment}>
-                <Dialog
-                    onClose={() => {
-                        if (subModalLock.current) return;
-                        onClose();
-                    }}
-                    className="relative z-[1000]"
-                >
-                    {/* Backdrop transition */}
-                    <TransitionChild
-                        as={Fragment}
-                        enter="ease-out duration-300"
-                        enterFrom="opacity-0"
-                        enterTo="opacity-100"
-                        leave="ease-in duration-200"
-                        leaveFrom="opacity-100"
-                        leaveTo="opacity-0"
-                    >
-                        <div className="fixed inset-0 bg-[#070b13]/80" />
-                    </TransitionChild>
-
-                    {/* Dialog Panel wrapper */}
-                    <div className="fixed inset-0 flex items-center justify-center p-4">
-                        <TransitionChild
-                            as={Fragment}
-                            enter="ease-out duration-300"
-                            enterFrom="opacity-0 scale-95"
-                            enterTo="opacity-100 scale-100"
-                            leave="ease-in duration-200"
-                            leaveFrom="opacity-100 scale-100"
-                            leaveTo="opacity-0 scale-95"
-                        >
-                            <DialogPanel className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden text-xs text-slate-100 relative z-10">
+            {isOpen && !activeSubModal && typeof document !== 'undefined' && createPortal(
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-[#070b13]/80" onClick={onClose} />
+                            <div role="dialog" aria-modal="true" className="bg-[#1e293b] border border-[#334155] rounded-2xl shadow-2xl w-full max-w-5xl max-h-[min(90vh,100dvh)] flex flex-col overflow-hidden text-xs text-slate-100 relative z-10">
 
                                 {/* Header */}
                                 <div className="flex items-center justify-between border-b border-[#334155] px-6 py-4 bg-[#0f172a]/40 shrink-0">
@@ -557,12 +539,9 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                         </div>
                                     </div>
                                 )}
-                            </DialogPanel>
-                        </TransitionChild>
-                    </div>
-
-                </Dialog>
-            </Transition>
+                            </div>
+                    </div>,
+                    document.body
             )}
 
             {activeSubModal && typeof document !== 'undefined' && createPortal(
