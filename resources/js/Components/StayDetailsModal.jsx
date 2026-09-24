@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Fragment } from 'react';
-import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
+import { Dialog, DialogPanel, Portal, Transition, TransitionChild } from '@headlessui/react';
 import { useForm, router, usePage, Link } from '@inertiajs/react';
 import {
     Calendar, Clock, Coins, User, Plus, DollarSign, Timer,
@@ -550,7 +550,8 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                         </TransitionChild>
                     </div>
 
-                    {/* Submodals stay inside the Dialog portal so mobile taps are not inert. */}
+                    {/* Portal registers this sheet with the dialog so mobile taps are inside it, not inert outside clicks. */}
+                    <Portal>
                     <AnimatePresence>
                 {/* 1. Modal: Extend stays */}
                 {activeSubModal === 'extend' && (
@@ -994,6 +995,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
 
                 {/* Removed pos_receipt modal */}
                     </AnimatePresence>
+                    </Portal>
                 </Dialog>
             </Transition>
 
