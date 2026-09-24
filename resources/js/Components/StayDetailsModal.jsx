@@ -1,5 +1,6 @@
-import React, { useState, useEffect, Fragment } from 'react';
-import { Dialog, DialogPanel, Portal, Transition, TransitionChild } from '@headlessui/react';
+import React, { useState, useEffect, useRef, Fragment } from 'react';
+import { createPortal } from 'react-dom';
+import { Dialog, DialogPanel, Transition, TransitionChild } from '@headlessui/react';
 import { useForm, router, usePage, Link } from '@inertiajs/react';
 import {
     Calendar, Clock, Coins, User, Plus, DollarSign, Timer,
@@ -11,6 +12,7 @@ import ConfirmModal from '@/Components/ConfirmModal';
 import GroupSettleModal from '@/Components/GroupSettleModal';
 import ImagePreviewModal from '@/Components/ImagePreviewModal';
 import ReceiptModal from '@/Components/ReceiptModal';
+import CustomSelect from '@/Components/CustomSelect';
 import axios from 'axios';
 
 export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode = 'checkin' }) {
@@ -29,6 +31,11 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
     const [vacantRooms, setVacantRooms] = useState([]);
     const [calculations, setCalculations] = useState({});
     const [activeSubModal, setActiveSubModal] = useState(null); // 'extend', 'checkout', 'cancel', 'move', 'pos_receipt'
+    const subModalLock = useRef(null);
+    const setSubModal = (next) => {
+        subModalLock.current = next;
+        setActiveSubModal(next);
+    };
     const [extendCashReceived, setExtendCashReceived] = useState('');
     const [checkoutCashReceived, setCheckoutCashReceived] = useState('');
 
@@ -104,20 +111,26 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         e.preventDefault();
         extendForm.post(route('bookings.extend', bookingId), {
             onSuccess: () => {
-                setActiveSubModal(null);
+                setSubModal(null);
                 extendForm.reset();
                 loadDetails();
             }
         });
     };
 
+    const checkoutLock = useRef(false);
     const handleCheckoutSubmit = (e) => {
-        e.preventDefault();
+        e?.preventDefault?.();
+        if (checkoutLock.current || checkoutForm.processing) return;
+        checkoutLock.current = true;
         checkoutForm.post(route('bookings.checkout', bookingId), {
             onSuccess: () => {
-                setActiveSubModal(null);
+                setSubModal(null);
                 onClose();
                 router.reload();
+            },
+            onFinish: () => {
+                checkoutLock.current = false;
             }
         });
     };
@@ -126,7 +139,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         e.preventDefault();
         cancelForm.post(route('bookings.cancel', bookingId), {
             onSuccess: () => {
-                setActiveSubModal(null);
+                setSubModal(null);
                 cancelForm.reset();
                 onClose();
                 router.reload();
@@ -138,7 +151,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
         e.preventDefault();
         moveForm.post(route('bookings.move', bookingId), {
             onSuccess: () => {
-                setActiveSubModal(null);
+                setSubModal(null);
                 moveForm.reset();
                 loadDetails();
             }
@@ -179,14 +192,12 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
 
     return (
         <>
+            {!activeSubModal && (
             <Transition show={isOpen} as={Fragment}>
                 <Dialog
                     onClose={() => {
-                        if (activeSubModal) {
-                            setActiveSubModal(null);
-                        } else {
-                            onClose();
-                        }
+                        if (subModalLock.current) return;
+                        onClose();
                     }}
                     className="relative z-[1000]"
                 >
@@ -488,7 +499,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                         <div className="flex flex-col gap-2.5 pt-2">
                                                             <button
                                                                 onClick={() => {
-                                                                    setActiveSubModal('checkout');
+                                                                    setSubModal('checkout');
                                                                     checkoutForm.setData({
                                                                         payment_method: 'cash',
                                                                         cash_amount: calculations.additional_due,
@@ -512,7 +523,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                             )}
 
                                                             <button
-                                                                onClick={() => setActiveSubModal('extend')}
+                                                                onClick={() => setSubModal('extend')}
                                                                 className="w-full flex items-center justify-center gap-1.5 px-4 py-2 bg-[#0f172a] hover:bg-[#334155] border border-[#334155] rounded-xl text-slate-350 hover:text-slate-100 text-[10px] font-bold uppercase transition-colors"
                                                             >
                                                                 <Timer size={12} /> Extend Stay
@@ -521,7 +532,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                             {['admin', 'front_desk'].includes(currentUser.role) && (
                                                                 <button
                                                                     onClick={() => {
-                                                                        setActiveSubModal('move');
+                                                                        setSubModal('move');
                                                                         moveForm.setData({
                                                                             new_room_id: '',
                                                                             reason: ''
@@ -534,7 +545,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                                             )}
 
                                                             <button
-                                                                onClick={() => setActiveSubModal('cancel')}
+                                                                onClick={() => setSubModal('cancel')}
                                                                 className="w-full flex items-center justify-center gap-1.5 px-4 py-1.5 bg-red-950/20 hover:bg-red-950/30 border border-red-900/30 rounded-xl text-red-400 hover:text-red-300 text-[10px] font-bold uppercase transition-all"
                                                             >
                                                                 <PowerOff size={11} /> Cancel Stay
@@ -550,12 +561,15 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                         </TransitionChild>
                     </div>
 
-                    {/* Portal registers this sheet with the dialog so mobile taps are inside it, not inert outside clicks. */}
-                    <Portal>
+                </Dialog>
+            </Transition>
+            )}
+
+            {activeSubModal && typeof document !== 'undefined' && createPortal(
                     <AnimatePresence>
                 {/* 1. Modal: Extend stays */}
                 {activeSubModal === 'extend' && (
-                    <div className="fixed inset-0 z-[80] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
+                    <div className="fixed inset-0 z-[100000] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
                         <div className="box-border flex min-h-full w-full items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
@@ -565,7 +579,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                         >
                             <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                                 <h3 className="font-outfit font-extrabold text-base text-slate-200">Extend Stay Duration</h3>
-                                <button onClick={() => setActiveSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
+                                <button onClick={() => setSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
                                     <X size={14} />
                                 </button>
                             </div>
@@ -717,7 +731,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                         : (calculations.additional_due || 0);
 
                     return (
-                        <div className="fixed inset-0 z-[80] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
+                        <div className="fixed inset-0 z-[100000] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
                         <div className="box-border flex min-h-full w-full items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.95 }}
@@ -727,7 +741,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                             >
                                 <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                                     <h3 className="font-outfit font-extrabold text-base text-slate-200">Process Checkout</h3>
-                                    <button onClick={() => setActiveSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
+                                    <button onClick={() => setSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
                                         <X size={14} />
                                     </button>
                                 </div>
@@ -871,9 +885,10 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                                     </div>
 
                                     <button
-                                        type="submit"
+                                        type="button"
                                         disabled={checkoutForm.processing}
-                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-slate-50 font-outfit font-black uppercase tracking-wider shadow cursor-pointer transition-all active:scale-95"
+                                        onClick={handleCheckoutSubmit}
+                                        className="relative z-10 w-full min-h-12 touch-manipulation py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl text-slate-50 font-outfit font-black uppercase tracking-wider shadow cursor-pointer transition-all active:scale-95"
                                     >
                                         {checkoutForm.processing ? 'Auditing Checkout...' : 'Confirm Checkout & Clear Room'}
                                     </button>
@@ -886,7 +901,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
 
                 {/* 3. Modal: Reassign Room */}
                 {activeSubModal === 'move' && (
-                    <div className="fixed inset-0 z-[80] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
+                    <div className="fixed inset-0 z-[100000] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
                         <div className="box-border flex min-h-full w-full items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
@@ -896,7 +911,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                         >
                             <div className="flex justify-between items-center border-b border-[#334155] pb-3">
                                 <h3 className="font-outfit font-extrabold text-base text-slate-200">Reassign Guest Room</h3>
-                                <button onClick={() => setActiveSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
+                                <button onClick={() => setSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
                                     <X size={14} />
                                 </button>
                             </div>
@@ -946,7 +961,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
 
                 {/* 4. Modal: Cancel Booking Stay */}
                 {activeSubModal === 'cancel' && (
-                    <div className="fixed inset-0 z-[80] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
+                    <div className="fixed inset-0 z-[100000] max-h-[100dvh] overflow-y-auto overscroll-contain bg-[#070b13]/90">
                         <div className="box-border flex min-h-full w-full items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
                         <motion.div
                             initial={{ opacity: 0, scale: 0.95 }}
@@ -956,7 +971,7 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                         >
                             <div className="flex justify-between items-center border-b border-red-500/30 pb-3">
                                 <h3 className="font-outfit font-extrabold text-base text-red-400">Cancel Booking Stay</h3>
-                                <button onClick={() => setActiveSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
+                                <button onClick={() => setSubModal(null)} className="p-1 rounded bg-[#0f172a] border border-[#334155] text-slate-400">
                                     <X size={14} />
                                 </button>
                             </div>
@@ -994,10 +1009,9 @@ export default function StayDetailsModal({ isOpen, bookingId, onClose, viewMode 
                 )}
 
                 {/* Removed pos_receipt modal */}
-                    </AnimatePresence>
-                    </Portal>
-                </Dialog>
-            </Transition>
+                    </AnimatePresence>,
+                    document.body
+            )}
 
             <ImagePreviewModal
                 isOpen={isImageModalOpen}
